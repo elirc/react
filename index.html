@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Quiz board studio</title><link rel="stylesheet" href="styles.css"><script type="module" src="main.js"></script></head>
+<body><main><header><p class="eyebrow">LOCAL LEARNING LAB</p><h1>Quiz board studio</h1><p>Build a question bank. Play a round. Keep your work in this browser.</p></header>
+<div class="toolbar"><button id="edit-btn">Edit question bank</button><button id="reset-round">New round</button><button id="export-btn">Export board</button><label class="file-button">Import board<input id="import-file" type="file" accept="application/json,.json"></label><button id="reload-btn">Reload saved board</button></div>
+<p id="status" role="status" aria-live="polite"></p><div id="error-panel" hidden><p id="error" role="alert"></p><button id="export-raw">Export saved text</button><button id="replace-btn">Replace with example board</button></div>
+<p id="progress"></p><div id="board" class="board" aria-label="Question board"></div><p class="footnote">Local storage is shared only by tabs on this exact origin. Export a copy before moving browsers or clearing site data.</p>
+</main>
+<dialog id="answer-modal" aria-labelledby="clue-title"><h2 id="clue-title">Clue</h2><p id="clue-error" role="alert"></p><p id="clue-text"></p><p id="answer-text" hidden></p><div class="actions"><button id="reveal-answer">Reveal answer</button><button id="mark-used">Mark clue used</button><button id="close-answer">Close clue</button></div></dialog>
+<dialog id="editor-modal" aria-labelledby="editor-title"><h2 id="editor-title">Edit question bank</h2><p>Changes stay in this draft until Save bank succeeds. Deleting a category removes its questions.</p><p id="editor-error" role="alert"></p><form id="editor-form"><div id="editor-container"></div><div class="actions sticky"><button type="button" id="add-category">Add category</button><button type="submit" id="save-questions">Save bank</button><button type="button" id="close-editor">Cancel editing</button></div></form></dialog>
+</body></html>
