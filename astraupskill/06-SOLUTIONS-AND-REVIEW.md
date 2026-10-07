@@ -35,3 +35,22 @@ test('two concurrent cooperating saves from one baseline have one winner', async
 });
 ```
 
+
+## Answers to the code-reading drills
+
+**7a.** The first click disables every control (`main.js:24`), so a genuine second click lands on a disabled button and does nothing. `if (busy) return false` (`main.js:23`) is defence in depth for programmatic calls, such as a `storage` event handler or a keyboard submit racing the disable. Either way the user sees no message for the ignored attempt.
+
+**7b.** `showClue` stores `raw: current.raw` at open time (`main.js:30`). Mark used builds its draft from the *latest* `current.state` (line 38) but saves against the remembered `clue.raw` (line 41). After another tab's new round, this tab's `storage` handler has reloaded `current`, but `clue.raw` is old, so `store.js:53` rejects with "This board changed in another tab". That is safe — it cannot resurrect old progress — but conservative: the user must close and reopen the clue. A reasonable alternative is to rebase only when the change is compatible (the clue still exists and is not yet used), which would need its own test.
+
+**7c.** `text()` throws `Prompt must contain 1-1000 characters.` (`store.js:7`, called on line 21). The message is the same for every question, so in a bank of 50 questions the user must hunt. Including the category and question position in the thrown message would fix this; the validator already has both indices in scope at lines 15-18 via `map`.
+
+## Senior-review findings
+
+1. **Validation errors do not identify the record.** `store.js:5`, `:7`, `:20` throw generic messages ("Invalid question fields.", "Prompt must contain...", "Points must be...") with no category or question index. For imports this makes a 2 MiB file very hard to repair.
+2. **Answers are shipped before reveal.** `main.js:32` writes `question.answer` into a hidden element; anyone with devtools can read it. Fine for a local study tool, but the README's "Reveal answer" should not be mistaken for secrecy (practice exercise 5).
+3. **Clue completion uses an open-time baseline.** `main.js:30` / `:41` (drill 7b) — safe but forces a reopen after any change elsewhere, including an unrelated category rename.
+4. **One error string, three destinations.** `error()` (`main.js:10`) writes the same message to the page panel, the editor and the clue dialog. An editor validation error therefore also appears in the main error panel behind the modal, and the panel is only cleared by the next successful operation or `load()`.
+5. **Shadowed parameter.** `removeCategory(state, id)` reuses `id` as the inner filter parameter (`store.js:64`: `.filter(id => retained.has(id))`). Behaviour is correct, but the outer `id` is unreachable inside that callback; renaming avoids a future bug.
+6. **Silent no-op on concurrent save.** `main.js:23` returns `false` with no status. If a future caller awaits the result to close a dialog, it will stay open with no explanation.
+7. **Whole-board CAS is coarse by design.** `store.js:53` compares the full serialized board, so any write anywhere conflicts with any open editor. Documented as a limit (chapter 02) — reviewers should expect that, not flag it as a bug, until per-record versions exist.
+8. **Strengths worth keeping.** One write site (`store.js:59`); validation before lock; revision derived from storage (`store.js:55-57`); recovery that refuses to overwrite unreadable data without confirmation and a matching baseline (`main.js:52-55`, `store.js:53-55`); a server that serves an explicit allowlist with CSP (`server.js:6-14`, `:28-34`).

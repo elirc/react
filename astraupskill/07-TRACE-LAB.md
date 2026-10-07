@@ -26,3 +26,30 @@ window.addEventListener('storage', event => {
 });
 ```
 
+
+## Reference trace table
+
+Fill this in yourself first, then compare. One editor save of a renamed category:
+
+| Stage | Code | Can fail? | What the user sees on failure |
+|---|---|---|---|
+| input collection | `edit.js:9` writes into `draft` | no | — |
+| native constraints | `required`, `maxLength`, `min/max/step` (`edit.js:7-8`) | yes | browser tooltip; no submit event |
+| submit | `edit.js:30` -> `main.js:9` -> `main.js:22` | busy gate | nothing (`main.js:23`) |
+| controls disabled | `main.js:24` | no | — |
+| structural validation | `store.js:49` -> `validateState` | yes | message in editor; dialog stays open |
+| lock availability | `store.js:50` | yes | "Saving needs Web Locks" |
+| lock acquisition | `store.js:51` | waits | controls stay disabled while waiting |
+| read current | `store.js:52` | yes | "Browser storage is unavailable." |
+| baseline comparison | `store.js:53` | yes | "This board changed in another tab..." |
+| revision derivation | `store.js:55-56` | yes | parse error or revision limit |
+| size check | `store.js:58` | yes | "Board exceeds the 2 MiB limit." |
+| storage write | `store.js:59` | yes | "Save failed: browser storage is full..." |
+| publish accepted state | `main.js:25` (`current = committed`) | no | — |
+| render | `main.js:25` -> `board.js` | no | — |
+| close editor | `edit.js:30` | no | — |
+| other tabs notified | browser fires `storage` -> `main.js:65-69` | — | "Saved board changed in another tab." |
+
+Mapping to a future server stack: native constraints -> form component; submit and busy gate -> client adapter; validation -> API route (reuse `validateState`); lock + baseline + write -> a single conditional `UPDATE` in a transaction ([08](08-HTTP-COMPANION.md)); `storage` event -> polling, server-sent events or a websocket.
+
+**Check:** your table marks exactly five stages as unable to fail (input collection, disabling controls, publishing, rendering, closing), and every failure row names a message that appears verbatim in `store.js`.

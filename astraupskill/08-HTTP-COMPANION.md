@@ -31,15 +31,23 @@ app.get('/api/bank', (req, res) => {
 app.put('/api/bank', (req, res) => {
   const match = /^"(\d+)"$/.exec(req.get('if-match') ?? '');
   if (!match) return res.status(428).json({ error: 'If-Match with the version you loaded is required' });
-  const errors = validateState({ categories: req.body?.categories });   // reuse store.js's validator on the server
-  if (errors.length) return res.status(400).json({ errors });
+  // store.js's validateState throws on the first problem and returns a normalized copy;
+  // it requires the full board shape, so supply the fixed fields around the client's categories.
+  let normalized;
+  try {
+    normalized = validateState({ schemaVersion: 1, revision: 0, categories: req.body?.categories, usedQuestionIds: [] });
+  } catch (error) {
+    return res.status(400).json({ errors: [error.message] });
+  }
   const expected = Number(match[1]);
   const result = db.prepare('UPDATE bank SET version = version + 1, body = ? WHERE id = 1 AND version = ?')
-    .run(JSON.stringify({ categories: req.body.categories }), expected);
+    .run(JSON.stringify({ categories: normalized.categories }), expected);
   if (result.changes === 0) return res.status(409).json({ error: 'The bank changed since you loaded it. Reload, then reapply your edit.' });
   res.set('ETag', `"${expected + 1}"`).json({ version: expected + 1 });
 });
 ```
+
+Two details differ from a naive port. First, `validateState` (`store.js:9-27`) does not return an error list: it throws an `Error` on the first violation and otherwise returns a normalized, trimmed copy, so the route stores `normalized.categories` rather than the raw request body. Second, it insists on the full board shape (`schemaVersion: 1`, a revision, `usedQuestionIds`), so the route wraps the client's categories in those fixed fields; round progress (`usedQuestionIds`) is deliberately left out of this bank-only resource.
 
 `changes === 0` is the whole conflict rule: no read-then-compare, one conditional `UPDATE`. That is what `store.js` simulates by comparing the raw string it last read.
 
@@ -52,7 +60,7 @@ app.put('/api/bank', (req, res) => {
 1. `PUT` without `If-Match` is 428 and the row is unchanged.
 2. Two clients load version 1; the first `PUT` is 200 with version 2; the second is 409 and the body is still the first client's.
 3. A body that fails `validateState` is 400 and the version does not move.
-4. The Playwright scenario from `e2e/board.spec.js`, unchanged, against the served page: the board still works because the store's contract did not change.
+4. Browser scenarios adapted from `e2e/board.spec.js`. They cannot run unchanged: several read or seed `localStorage` directly (for example lines 99, 119-122 and 156-159), and the Web Locks scenario (lines 126-154) constructs `BoardStore` with `localStorage`. Keep their user-visible assertions (draft retained, one winner) and replace the storage probes with API reads.
 
 ## What moved
 
@@ -60,5 +68,11 @@ app.put('/api/bank', (req, res) => {
 |---|---|
 | raw-string baseline compare | `If-Match` + conditional `UPDATE ... WHERE version = ?` |
 | `validateState` in the browser | the same function, on the server, before the write |
-| `localStorage` quota errors | 413 from `express.json({ limit })` and a 507 if the disk is full |
+| `localStorage` quota errors | 413 from `express.json({ limit })`; disk-full handling is a design decision this sketch does not implement |
 | two tabs | two clients; same rule, now enforced where it cannot be bypassed |
+
+## Status of this chapter
+
+Everything above is a design sketch. None of it exists in this repository: there is no Express dependency in `package.json` (its only dev dependency is `@playwright/test`), no `bank.sqlite`, and `server.js` serves static assets only. Treat the code as a starting point you must write, run and test yourself.
+
+**Check:** your implementation passes tests 1-3 above, and test 2's losing client still has its edit on screen after the 409.

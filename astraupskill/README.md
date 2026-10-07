@@ -36,3 +36,9 @@ For every change, write a short note with the user intent, valid input, state ow
 The app stores data in this browser on this exact origin. Export provides a copy you can move elsewhere. There is no authenticated account, remote database or shared classroom service. The course teaches those as next steps. A mid-level engineer should be able to distinguish a working local workflow from the additional consistency and access-control requirements of a multi-user server application.
 
 Practice exercise 3 has a worked companion: [08-HTTP-COMPANION.md](08-HTTP-COMPANION.md) (Express + SQLite, `If-Match` and a conditional `UPDATE`).
+
+## Lesson-level Goal and Check
+
+**Goal:** be able to explain, citing file and line, how one Save bank click either becomes the accepted board or leaves the user's draft intact.
+
+**Check:** without notes, name the single line that writes storage (`store.js:59`), the line that refuses a stale draft (`store.js:53`), the line that publishes accepted state to the page (`main.js:25`), and the line that decides whether the editor closes (`edit.js:30`). Then open [01-CODEBASE-MAP](01-CODEBASE-MAP.md) and compare.
